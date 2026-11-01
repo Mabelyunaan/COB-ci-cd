@@ -1,0 +1,30 @@
+name: terraform-cd
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "stacks/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy-dev:
+    uses: ./.github/workflows/terraform-run.yml
+    with:
+      environment: dev
+      plan_role_arn: ${{ vars.PLAN_ROLE_ARN }}
+      apply: true
+
+  # Waits for dev to succeed, then pauses for a prod approver (GitHub environment rule).
+  deploy-prod:
+    needs: deploy-dev
+    uses: ./.github/workflows/terraform-run.yml
+    with:
+      environment: prod
+      plan_role_arn: ${{ vars.PLAN_ROLE_ARN }}
+      apply: true

@@ -1,0 +1,29 @@
+name: terraform-drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  dev:
+    uses: ./.github/workflows/terraform-run.yml
+    with: { environment: dev, plan_role_arn: "${{ vars.PLAN_ROLE_ARN }}", apply: false }
+  prod:
+    uses: ./.github/workflows/terraform-run.yml
+    with: { environment: prod, plan_role_arn: "${{ vars.PLAN_ROLE_ARN }}", apply: false }
+
+  report:
+    needs: [dev, prod]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on drift
+        if: needs.dev.outputs.has_changes == 'true' || needs.prod.outputs.has_changes == 'true'
+        run: |
+          echo "Drift detected: dev=${{ needs.dev.outputs.has_changes }} prod=${{ needs.prod.outputs.has_changes }}"
+          exit 1

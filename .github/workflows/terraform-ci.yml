@@ -1,0 +1,46 @@
+name: terraform-ci
+
+on:
+  pull_request:
+    paths:
+      - "stacks/**"
+      - "bootstrap/**"
+      - ".github/workflows/**"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  static:
+    name: lint and security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        run: tflint --init && tflint --recursive
+      - name: Security scan (trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: stacks
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  plan-dev:
+    needs: static
+    uses: ./.github/workflows/terraform-run.yml
+    with:
+      environment: dev
+      plan_role_arn: ${{ vars.PLAN_ROLE_ARN }}
+      apply: false
+
+  plan-prod:
+    needs: static
+    uses: ./.github/workflows/terraform-run.yml
+    with:
+      environment: prod
+      plan_role_arn: ${{ vars.PLAN_ROLE_ARN }}
+      apply: false
